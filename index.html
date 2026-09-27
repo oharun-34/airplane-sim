@@ -12,6 +12,15 @@
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
+    /* 入力フォーム全般・基準日フォームの幅を親要素内に納める設定 */
+input[type="date"],
+input[type="text"],
+select {
+  width: 100% !important;        /* 親要素の幅いっぱいに指定 */
+  max-width: 100% !important;    /* はみ出しを防止 */
+  box-sizing: border-box !important; /* パディングやボーダーを幅に含める */
+  -webkit-appearance: none;      /* iOS特有のデフォルトスタイルの干渉をリセット */
+}
   </style>
 </head>
 <body class="min-h-full bg-slate-50 text-slate-800 p-4 sm:p-6 lg:p-8 flex flex-col justify-between">
