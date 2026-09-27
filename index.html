@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="ja" class="h-full bg-slate-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>✈️ 紙飛行機大作戦シミュレーター</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+  </style>
+</head>
+<body class="min-h-full bg-slate-50 text-slate-800 p-4 sm:p-6 lg:p-8 flex flex-col justify-between">
+  <div class="max-w-4xl mx-auto w-full space-y-6">
+    
+    <!-- ヘッダー（次回ウィッシュ予定を内部に統合） -->
+    <header class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 text-center relative overflow-hidden space-y-3">
+      <div class="absolute -top-10 -right-10 w-32 h-32 bg-indigo-50 rounded-full blur-2xl pointer-events-none"></div>
+      <div class="relative z-10">
+        <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">✈️ 紙飛行機大作戦シミュレーター</h1>
+      </div>
+
+      <!-- ヘッダー内に組み込んだウィッシュ予告エリア -->
+      <div id="wish-notice-card" class="relative z-10 pt-2 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-center gap-2 text-xs sm:text-sm text-center">
+        <div class="flex items-center gap-2 shrink-0">
+          <span class="bg-indigo-50 text-indigo-700 font-bold px-3 py-0.5 rounded-full text-xs border border-indigo-100 flex items-center gap-1">
+            🔔 次回ウィッシュ予定
+          </span>
+        </div>
+        <div id="wish-notice-text" class="text-xs sm:text-sm text-slate-700 text-center">
+          <!-- JSでここにテキストが挿入されます -->
+        </div>
+      </div>
+    </header>
+
+    <script>
+    (function() {
+      // イベント開始日のリスト（2026年）
+      const eventDates = [
+        new Date("2026-03-03T05:00:00"),
+        new Date("2026-04-14T05:00:00"),
+        new Date("2026-05-26T05:00:00"),
+        new Date("2026-07-07T05:00:00"),
+        new Date("2026-08-18T05:00:00"),
+        new Date("2026-09-29T05:00:00"),
+        new Date("2026-11-10T05:00:00")
+      ];
+
+      const now = new Date();
+
+      // 現在時刻より未来の最初のイベント（終了時刻＝開始日の8日後4:59:59まで考慮）を探す
+      let nextEventStart = null;
+
+      for (const startDate of eventDates) {
+        // イベント終了時刻：開始日の8日後の4:59:59
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 8);
+        endDate.setHours(4, 59, 59, 999);
+
+        if (now <= endDate) {
+          nextEventStart = startDate;
+          break;
+        }
+      }
+
+      const noticeElement = document.getElementById("wish-notice-text");
+
+      if (nextEventStart) {
+        // 終了日（開始日の8日後）の計算
+        const nextEventEnd = new Date(nextEventStart);
+        nextEventEnd.setDate(nextEventEnd.getDate() + 8);
+
+        // 曜日表記用の配列
+        const dayOfWeek = ["日", "月", "火", "水", "木", "金", "土"];
+
+        // 日付フォーマットの組み立て
+        const startStr = `${nextEventStart.getFullYear()}/${nextEventStart.getMonth() + 1}/${nextEventStart.getDate()}（${dayOfWeek[nextEventStart.getDay()]}）5:00AM`;
+        const endStr = `${nextEventEnd.getMonth() + 1}/${nextEventEnd.getDate()}（${dayOfWeek[nextEventEnd.getDay()]}）4:59AM`;
+
+        noticeElement.innerHTML = `<span class="text-indigo-600 font-medium">${startStr}</span> 〜 <span class="text-indigo-600 font-medium">${endStr}</span>`;
+      } else {
+        noticeElement.textContent = "未定";
+      }
+    })();
+    </script>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      <!-- 入力フォームエリア (左側2列) -->
+      <div class="lg:col-span-2 space-y-6">
+        
+        <!-- 1. 基本設定 -->
+        <section class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200/80 space-y-4">
+          <div class="flex flex-wrap items-center justify-between border-b border-slate-100 pb-3 gap-2">
+            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <span class="w-2 h-5 bg-indigo-600 rounded-full inline-block"></span>
+              1. 基本設定
+            </h2>
+
+            <!-- モード切り替え & クリアボタン -->
+            <div class="flex flex-wrap items-center gap-2">
+              <!-- 無課金モード -->
+              <label class="inline-flex items-center cursor-pointer bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg border border-slate-200 transition-all text-xs font-semibold text-slate-600 select-none">
+                <input type="checkbox" id="f2pToggle" onchange="toggleFreeToPlayMode()" class="sr-only peer">
+                <div class="relative w-7 h-3.5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-emerald-500 mr-1.5"></div>
+                <span>🌱 無課金</span>
+              </label>
+
+              <!-- 今日達成（未来デイリー除外）モード -->
+              <label class="inline-flex items-center cursor-pointer bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg border border-slate-200 transition-all text-xs font-semibold text-slate-600 select-none" title="未来のデイリーptを除外し、今日の時点で目標達成できるか検証します">
+                <input type="checkbox" id="todayOnlyToggle" onchange="onInputWithSave()" class="sr-only peer">
+                <div class="relative w-7 h-3.5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-indigo-600 mr-1.5"></div>
+                <span>📅 今日達成</span>
+              </label>
+
+              <button onclick="clearFormData()" class="text-xs font-semibold text-slate-400 hover:text-rose-600 bg-slate-100 hover:bg-rose-50 px-2.5 py-1 rounded-lg border border-slate-200 hover:border-rose-200 transition-all flex items-center gap-1">
+                <span>🗑️ クリア</span>
+              </button>
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label for="eventDate" class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">基準日</label>
+              <div class="relative">
+                <input type="date" id="eventDate" onchange="onDateChange()" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+              </div>
+              <p id="dayOfWeekNotice" class="text-[11px] text-indigo-600 font-medium mt-1">---</p>
+            </div>
+
+            <div>
+              <label for="targetTier" class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">目標獲得層 (希望紙飛行機数)</label>
+              <select id="targetTier" onchange="onInputWithSave()" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all cursor-pointer">
+                <option value="1">第1層 (50 個 / 要 600 pt)</option>
+                <option value="2">第2層 (150 個 / 要 1,500 pt)</option>
+                <option value="3">第3層 (305 個 / 要 3,000 pt - 1周完走)</option>
+                <option value="4">第4層 (610 個 / 要 6,000 pt - 2周完走)</option>
+                <option value="5" selected>第5層 (905 個 / 要 9,000 pt - 3周完走)</option>
+              </select>
+            </div>
+
+            <!-- 現在の進捗設定 -->
+            <div class="grid grid-cols-2 gap-2 sm:col-span-2">
+              <div>
+                <label for="currentLaps" class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">完了周数</label>
+                <select id="currentLaps" onchange="onInputWithSave()" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all cursor-pointer">
+                  <option value="0" selected>0 周完了</option>
+                  <option value="1">1 周完了</option>
+                  <option value="2">2 周完了</option>
+                </select>
+              </div>
+              <div>
+                <label for="currentLapPoints" class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">現在の周pt</label>
+                <input type="number" id="currentLapPoints" value="0" min="0" max="3000" oninput="onInputWithSave()" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. 消費予定の所持リソース -->
+        <section class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200/80 space-y-4">
+          <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-3">
+            <span class="w-2 h-5 bg-indigo-600 rounded-full inline-block"></span>
+            2. 消費予定の所持リソース
+          </h2>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label for="resSkill" class="block text-xs font-semibold text-slate-600 mb-1">スキル占い <span class="text-indigo-600 font-normal">(10 pt/枚)</span></label>
+              <input type="number" id="resSkill" value="0" min="0" oninput="onInputWithSave()" class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+            </div>
+
+            <div>
+              <label for="resMelomon" class="block text-xs font-semibold text-slate-600 mb-1">メロモン召喚チケット <span class="text-indigo-600 font-normal">(15 pt/枚)</span></label>
+              <input type="number" id="resMelomon" value="0" min="0" oninput="onInputWithSave()" class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+            </div>
+
+            <div>
+              <label for="resRunes" class="block text-xs font-semibold text-slate-600 mb-1">ルーン <span class="text-indigo-600 font-normal">(1 pt/個)</span></label>
+              <input type="number" id="resRunes" value="0" min="0" oninput="onInputWithSave()" class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+            </div>
+
+            <div>
+              <label for="resArtifact" class="block text-xs font-semibold text-slate-600 mb-1">エネルギー <span class="text-indigo-600 font-normal">(3 pt/個)</span></label>
+              <input type="number" id="resArtifact" value="0" min="0" oninput="onInputWithSave()" class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+            </div>
+
+            <div>
+              <label for="resRecharge" class="block text-xs font-semibold text-slate-600 mb-1">チャージ水晶 <span class="text-indigo-600 font-normal">(3 pt/個)</span></label>
+              <input type="number" id="resRecharge" value="0" min="0" oninput="onInputWithSave()" class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+            </div>
+
+            <div>
+              <label for="resMount" class="block text-xs font-semibold text-slate-600 mb-1">マウントチケット <span class="text-indigo-600 font-normal">(2 pt/枚)</span></label>
+              <input type="number" id="resMount" value="0" min="0" oninput="onInputWithSave()" class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. パック利用状況 -->
+        <section class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200/80 space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <span class="w-2 h-5 bg-indigo-600 rounded-full inline-block"></span>
+              3. パック利用状況 <span class="text-xs font-normal text-slate-400">(上限各1回)</span>
+            </h2>
+            <span id="f2pNotice" class="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full hidden">
+              🌱 無課金モード有効中
+            </span>
+          </div>
+
+          <div class="text-xs text-slate-500 mb-2 flex items-center gap-4">
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>利用済み：獲得済みに即加算</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-indigo-600 inline-block"></span>利用予定：今後のシミュレーションに加算</span>
+          </div>
+
+          <div id="packContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs sm:text-sm">
+            <!-- JavaScriptで動的生成 -->
+          </div>
+        </section>
+
+      </div>
+
+      <!-- 計算結果エリア (右側固定) -->
+      <div class="lg:col-span-1">
+        <div class="sticky top-6 bg-slate-900 text-white rounded-2xl p-5 sm:p-6 shadow-xl space-y-5 border border-slate-800">
+          
+          <h2 class="text-lg font-bold border-b border-slate-800 pb-2.5 flex items-center justify-between">
+            <span>計算結果</span>
+            <span class="text-[11px] font-normal bg-indigo-500/20 text-indigo-300 px-2.5 py-0.5 rounded-full border border-indigo-500/30">リアルタイム更新</span>
+          </h2>
+
+          <!-- メイン強調表示: 紙飛行機 不足カード -->
+          <div id="statusCard" class="rounded-xl p-4 bg-gradient-to-br from-rose-950/80 to-slate-900 border border-rose-500/30 text-center transition-all space-y-2">
+            <div id="statusHeader" class="text-xs font-bold uppercase tracking-wider text-rose-300 flex items-center justify-center gap-1">
+              <span>✈️ 目標達成まであと</span>
+            </div>
+            <div id="statusValue" class="text-3xl sm:text-4xl font-extrabold text-rose-400 tracking-tight">
+              0 <span class="text-base font-normal text-slate-300">個</span>
+            </div>
+            
+            <div id="statusSubtext" class="text-[11px] text-slate-300 pt-2 border-t border-slate-800/80 space-y-1">
+              <div>ポイントのみで補う場合: <span id="ptsNeededText" class="text-rose-300 font-bold">--- pt</span></div>
+              <div id="predictedProgressText" class="text-slate-400 text-[10px]">到達予想: - 周完了 (周pt: - pt)</div>
+            </div>
+          </div>
+
+          <!-- 視覚的プログレスバー -->
+          <div class="space-y-1.5">
+            <div class="flex justify-between text-xs font-bold">
+              <span class="text-slate-300">目標進捗</span>
+              <span id="progressBarText" class="text-indigo-400">0 / 0 個 (0%)</span>
+            </div>
+            <div class="w-full bg-slate-800 h-3.5 rounded-full overflow-hidden p-0.5 flex border border-slate-700/60">
+              <!-- 獲得済み (Amber) -->
+              <div id="barOwned" class="bg-amber-400 h-full rounded-l-full transition-all duration-300" style="width: 0%"></div>
+              <!-- 追加予定 (Emerald) -->
+              <div id="barUpcoming" class="bg-emerald-400 h-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <div class="flex justify-between text-[10px] text-slate-400 px-0.5">
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>獲得済: <span id="barOwnedText" class="text-slate-200">0</span></span>
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>予定: <span id="barUpcomingText" class="text-slate-200">0</span></span>
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-600 inline-block"></span>不足: <span id="barMissingText" class="text-rose-400">0</span></span>
+            </div>
+          </div>
+
+          <!-- 紙飛行機獲得数の詳細内訳 -->
+          <div class="pt-2 border-t border-slate-800 space-y-2">
+            <div class="text-xs font-bold text-slate-300 uppercase tracking-wider">内訳：紙飛行機獲得数</div>
+            <div class="bg-slate-800/60 p-3 rounded-xl space-y-2 border border-slate-700/50 text-xs">
+              
+              <!-- ① 獲得済み -->
+              <div class="flex justify-between items-center">
+                <span class="text-slate-300">① 獲得済み合計:</span>
+                <span id="tokensOwnedResult" class="font-bold text-amber-400">0 個</span>
+              </div>
+              <div class="pl-3 text-[11px] text-slate-400 space-y-0.5 border-l border-slate-700">
+                <div class="flex justify-between">
+                  <span>└ 周pt達成分:</span>
+                  <span id="bdOwnedFromLap" class="text-slate-200">0 個</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>└ 利用済みパック分:</span>
+                  <span id="bdOwnedFromPacks" class="text-slate-200">0 個</span>
+                </div>
+              </div>
+
+              <!-- ② 今後の追加獲得予定 -->
+              <div class="flex justify-between items-center pt-1 border-t border-slate-700/50">
+                <span class="text-slate-300">② 今後の追加獲得予定:</span>
+                <span id="tokensUpcomingResult" class="font-bold text-emerald-400">0 個</span>
+              </div>
+              <div class="pl-3 text-[11px] text-slate-400 space-y-0.5 border-l border-slate-700">
+                <div class="flex justify-between">
+                  <span>└ 今後の達成pt分:</span>
+                  <span id="bdUpcomingFromPoints" class="text-slate-200">0 個</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>└ 利用予定パック分:</span>
+                  <span id="bdUpcomingFromPacks" class="text-slate-200">0 個</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- パック利用費用 summary -->
+          <div class="pt-2 border-t border-slate-800 space-y-1.5 text-xs">
+            <div class="flex justify-between text-slate-400">
+              <span>利用予定 星石数:</span>
+              <span id="stellariteCostResult" class="font-semibold text-slate-200">0</span>
+            </div>
+            <div class="flex justify-between items-center text-sm font-bold pt-1 border-t border-slate-800/60 text-emerald-300">
+              <span>利用予定 合計金額:</span>
+              <span id="jpyCostResult" class="text-base text-emerald-400 font-extrabold">0 円</span>
+            </div>
+          </div>
+
+          <!-- アコーディオンスタイルの詳細ポイント情報 -->
+          <details class="pt-2 border-t border-slate-800 text-xs group" open>
+            <summary class="cursor-pointer text-slate-400 hover:text-slate-200 flex items-center justify-between font-medium select-none">
+              <span>📊 ポイント（pt）の計算詳細</span>
+              <span class="text-[10px] group-open:rotate-180 transition-transform">▼</span>
+            </summary>
+            <div class="pt-3 space-y-2 text-slate-300">
+              <div class="flex justify-between">
+                <span id="dailyLabelText">デイリー獲得予測:</span>
+                <span id="dailyPointsResult" class="font-semibold text-indigo-300">0 pt</span>
+              </div>
+              <div class="flex justify-between">
+                <span>所持リソース消費予測:</span>
+                <span id="resourcePointsResult" class="font-semibold text-indigo-300">0 pt</span>
+              </div>
+              <div class="flex justify-between border-t border-slate-800 pt-1.5 font-bold">
+                <span>合計予測ポイント:</span>
+                <span id="totalPointsResult" class="text-emerald-400">0 pt</span>
+              </div>
+              <div class="flex justify-between text-slate-400 text-[11px] pt-1">
+                <span>└ 最終到達進捗:</span>
+                <span id="finalLapProgressResult" class="text-emerald-300 font-semibold">- 周完了 (周pt: - pt)</span>
+              </div>
+            </div>
+          </details>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- フッター -->
+  <footer class="mt-8 text-center text-[10px] text-slate-300 select-none">
+    &copy; おはるん(445358)＠34鯖 ver1.0 20260927
+  </footer>
+
+  <script>
+    const STORAGE_KEY = 'paper_airplane_sim_data_v2';
+
+    let calculatedDaysLeft = 6;
+
+    const PACK_LIST = [
+      { id: 'pack_0', name: 'フフのギフト', tokens: 5, stellarite: 0, jpy: 0 },
+      { id: 'pack_1', name: '星石セレクトパックI', tokens: 5, stellarite: 1000, jpy: 0 },
+      { id: 'pack_2', name: '星石セレクトパックII', tokens: 10, stellarite: 1800, jpy: 0 },
+      { id: 'pack_3', name: '大作戦特別パック', tokens: 20, stellarite: 0, jpy: 150 },
+      { id: 'pack_4', name: 'フフの技パック', tokens: 65, stellarite: 0, jpy: 1500 },
+      { id: 'pack_5', name: 'リリカ特別パック', tokens: 80, stellarite: 0, jpy: 1500 },
+      { id: 'pack_6', name: 'エンソ特別パック①', tokens: 120, stellarite: 0, jpy: 3000 },
+      { id: 'pack_7', name: 'エンソ特別パック②', tokens: 120, stellarite: 0, jpy: 3000 },
+      { id: 'pack_8', name: 'フフマウントパック①', tokens: 120, stellarite: 0, jpy: 3000 },
+      { id: 'pack_9', name: 'フフマウントパック②', tokens: 120, stellarite: 0, jpy: 3000 },
+      { id: 'pack_10', name: 'フフ特別パック①', tokens: 240, stellarite: 0, jpy: 7500 },
+      { id: 'pack_11', name: 'フフ特別パック②', tokens: 240, stellarite: 0, jpy: 7500 }
+    ];
+
+    const tierGoals = {
+      1: { tokens: 50, points: 600 },
+      2: { tokens: 150, points: 1500 },
+      3: { tokens: 305, points: 3000 },
+      4: { tokens: 610, points: 6000 },
+      5: { tokens: 905, points: 9000 }
+    };
+
+    const lapMilestones = [
+      { pt: 100, tokens: 10 },
+      { pt: 300, tokens: 20 },
+      { pt: 600, tokens: 30 },
+      { pt: 1000, tokens: 40 },
+      { pt: 1500, tokens: 50 },
+      { pt: 2200, tokens: 70 },
+      { pt: 3000, tokens: 80 }
+    ];
+
+    function calculateTokensFromPoints(totalPts) {
+      let tokens = 0;
+      let remainingPts = totalPts;
+
+      const fullLaps = Math.min(3, Math.floor(remainingPts / 3000));
+      tokens += fullLaps * 305;
+
+      if (fullLaps < 3) {
+        const lapPts = remainingPts % 3000;
+        for (const m of lapMilestones) {
+          if (lapPts >= m.pt) {
+            tokens += m.tokens;
+          }
+        }
+      }
+
+      return tokens;
+    }
+
+    const dayNames = ["日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"];
+
+    const daysLeftByDayOfWeek = {
+      3: 6, 4: 5, 5: 4, 6: 3, 0: 2, 1: 1, 2: 0
+    };
+
+    function getJSTDateString(dateObj = new Date()) {
+      const jstDate = new Date(dateObj.getTime() + (9 * 60 + dateObj.getTimezoneOffset()) * 60000);
+      const year = jstDate.getFullYear();
+      const month = String(jstDate.getMonth() + 1).padStart(2, '0');
+      const day = String(jstDate.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function renderPackUI() {
+      const container = document.getElementById('packContainer');
+      container.innerHTML = '';
+
+      PACK_LIST.forEach(pack => {
+        const item = document.createElement('div');
+        item.className = 'pack-card flex items-center justify-between p-2.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-all';
+        item.setAttribute('data-jpy', pack.jpy);
+
+        item.innerHTML = `
+          <div class="flex-1 pr-2">
+            <div class="font-medium text-slate-800 leading-tight">${pack.name}</div>
+            <div class="text-[11px] text-slate-400 mt-0.5">+${pack.tokens} 個 ${pack.jpy > 0 ? `/ ¥${pack.jpy.toLocaleString()}` : (pack.stellarite > 0 ? `/ ${pack.stellarite} 星石` : '')}</div>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <label class="flex items-center gap-1 cursor-pointer bg-amber-50 hover:bg-amber-100 text-amber-800 px-2 py-1 rounded-lg border border-amber-200 text-xs font-semibold select-none transition-all">
+              <input type="checkbox" id="${pack.id}_bought" class="pack-bought-check accent-amber-500 w-3.5 h-3.5 rounded" onchange="onPackStatusChange('${pack.id}', 'bought')">
+              <span>済</span>
+            </label>
+            <label class="flex items-center gap-1 cursor-pointer bg-indigo-50 hover:bg-indigo-100 text-indigo-800 px-2 py-1 rounded-lg border border-indigo-200 text-xs font-semibold select-none transition-all pack-plan-label">
+              <input type="checkbox" id="${pack.id}_plan" class="pack-plan-check accent-indigo-600 w-3.5 h-3.5 rounded" onchange="onPackStatusChange('${pack.id}', 'plan')">
+              <span>予定</span>
+            </label>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function onPackStatusChange(packId, type) {
+      const boughtCb = document.getElementById(`${packId}_bought`);
+      const planCb = document.getElementById(`${packId}_plan`);
+
+      if (type === 'bought' && boughtCb.checked) {
+        planCb.checked = false;
+        planCb.disabled = true;
+        planCb.closest('label').classList.add('opacity-40', 'cursor-not-allowed');
+      } else if (type === 'bought' && !boughtCb.checked) {
+        planCb.disabled = false;
+        planCb.closest('label').classList.remove('opacity-40', 'cursor-not-allowed');
+      }
+
+      if (type === 'plan' && planCb.checked) {
+        boughtCb.checked = false;
+        boughtCb.disabled = true;
+        boughtCb.closest('label').classList.add('opacity-40', 'cursor-not-allowed');
+      } else if (type === 'plan' && !planCb.checked) {
+        boughtCb.disabled = false;
+        boughtCb.closest('label').classList.remove('opacity-40', 'cursor-not-allowed');
+      }
+
+      onInputWithSave();
+    }
+
+    function toggleFreeToPlayMode() {
+      const isF2P = document.getElementById('f2pToggle').checked;
+      const notice = document.getElementById('f2pNotice');
+
+      if (isF2P) {
+        notice.classList.remove('hidden');
+      } else {
+        notice.classList.add('hidden');
+      }
+
+      PACK_LIST.forEach(pack => {
+        if (pack.jpy > 0) {
+          const boughtCb = document.getElementById(`${pack.id}_bought`);
+          const planCb = document.getElementById(`${pack.id}_plan`);
+          const card = boughtCb.closest('.pack-card');
+
+          if (isF2P) {
+            boughtCb.checked = false;
+            planCb.checked = false;
+            boughtCb.disabled = true;
+            planCb.disabled = true;
+            card.classList.add('opacity-40', 'bg-slate-100', 'pointer-events-none');
+          } else {
+            boughtCb.disabled = false;
+            planCb.disabled = false;
+            card.classList.remove('opacity-40', 'bg-slate-100', 'pointer-events-none');
+          }
+        }
+      });
+
+      onInputWithSave();
+    }
+
+    function saveFormData() {
+      const data = {
+        f2p: document.getElementById('f2pToggle').checked,
+        todayOnly: document.getElementById('todayOnlyToggle').checked,
+        eventDate: document.getElementById('eventDate').value,
+        currentLaps: document.getElementById('currentLaps').value,
+        currentLapPoints: document.getElementById('currentLapPoints').value,
+        targetTier: document.getElementById('targetTier').value,
+        resSkill: document.getElementById('resSkill').value,
+        resMelomon: document.getElementById('resMelomon').value,
+        resRunes: document.getElementById('resRunes').value,
+        resArtifact: document.getElementById('resArtifact').value,
+        resRecharge: document.getElementById('resRecharge').value,
+        resMount: document.getElementById('resMount').value,
+        packsStatus: {}
+      };
+
+      PACK_LIST.forEach(pack => {
+        data.packsStatus[pack.id] = {
+          bought: document.getElementById(`${pack.id}_bought`).checked,
+          plan: document.getElementById(`${pack.id}_plan`).checked
+        };
+      });
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function loadFormData() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return false;
+
+      try {
+        const data = JSON.parse(raw);
+
+        if (data.f2p !== undefined) document.getElementById('f2pToggle').checked = data.f2p;
+        if (data.todayOnly !== undefined) document.getElementById('todayOnlyToggle').checked = data.todayOnly;
+        if (data.eventDate) document.getElementById('eventDate').value = data.eventDate;
+        if (data.currentLaps !== undefined) document.getElementById('currentLaps').value = data.currentLaps;
+        if (data.currentLapPoints !== undefined) document.getElementById('currentLapPoints').value = data.currentLapPoints;
+        if (data.targetTier) document.getElementById('targetTier').value = data.targetTier;
+
+        if (data.resSkill !== undefined) document.getElementById('resSkill').value = data.resSkill;
+        if (data.resMelomon !== undefined) document.getElementById('resMelomon').value = data.resMelomon;
+        if (data.resRunes !== undefined) document.getElementById('resRunes').value = data.resRunes;
+        if (data.resArtifact !== undefined) document.getElementById('resArtifact').value = data.resArtifact;
+        if (data.resRecharge !== undefined) document.getElementById('resRecharge').value = data.resRecharge;
+        if (data.resMount !== undefined) document.getElementById('resMount').value = data.resMount;
+
+        if (data.packsStatus) {
+          PACK_LIST.forEach(pack => {
+            const st = data.packsStatus[pack.id];
+            if (st) {
+              const boughtCb = document.getElementById(`${pack.id}_bought`);
+              const planCb = document.getElementById(`${pack.id}_plan`);
+              if (boughtCb) boughtCb.checked = st.bought;
+              if (planCb) planCb.checked = st.plan;
+
+              if (st.bought) onPackStatusChange(pack.id, 'bought');
+              if (st.plan) onPackStatusChange(pack.id, 'plan');
+            }
+          });
+        }
+
+        toggleFreeToPlayMode();
+        return true;
+      } catch (e) {
+        console.error("Failed to load saved data", e);
+        return false;
+      }
+    }
+
+    function clearFormData() {
+      if (!confirm("保存された入力データを消去して初期状態に戻しますか？")) return;
+
+      localStorage.removeItem(STORAGE_KEY);
+
+      document.getElementById('f2pToggle').checked = false;
+      document.getElementById('todayOnlyToggle').checked = false;
+      document.getElementById('eventDate').value = getJSTDateString();
+      document.getElementById('currentLaps').value = "0";
+      document.getElementById('currentLapPoints').value = "0";
+      document.getElementById('targetTier').value = "5";
+
+      document.getElementById('resSkill').value = "0";
+      document.getElementById('resMelomon').value = "0";
+      document.getElementById('resRunes').value = "0";
+      document.getElementById('resArtifact').value = "0";
+      document.getElementById('resRecharge').value = "0";
+      document.getElementById('resMount').value = "0";
+
+      PACK_LIST.forEach(pack => {
+        const boughtCb = document.getElementById(`${pack.id}_bought`);
+        const planCb = document.getElementById(`${pack.id}_plan`);
+        boughtCb.checked = false;
+        planCb.checked = false;
+        boughtCb.disabled = false;
+        planCb.disabled = false;
+        boughtCb.closest('label').classList.remove('opacity-40', 'cursor-not-allowed');
+        planCb.closest('label').classList.remove('opacity-40', 'cursor-not-allowed');
+      });
+
+      toggleFreeToPlayMode();
+      onDateChange();
+    }
+
+    function onInputWithSave() {
+      saveFormData();
+      calculate();
+    }
+
+    function onDateChange() {
+      const dateVal = document.getElementById('eventDate').value;
+      if (!dateVal) return;
+
+      const [y, m, d] = dateVal.split('-').map(Number);
+      const selectedDate = new Date(y, m - 1, d);
+      const dayOfWeek = selectedDate.getDay();
+
+      calculatedDaysLeft = daysLeftByDayOfWeek[dayOfWeek];
+
+      const dayName = dayNames[dayOfWeek];
+      document.getElementById('dayOfWeekNotice').textContent = `📅 ${dayName} (イベント残り ${calculatedDaysLeft} 日)`;
+
+      saveFormData();
+      calculate();
+    }
+
+    function calculate() {
+      const currentLaps = parseInt(document.getElementById('currentLaps').value) || 0;
+      const currentLapPoints = parseInt(document.getElementById('currentLapPoints').value) || 0;
+      const currentPoints = (currentLaps * 3000) + currentLapPoints;
+
+      const targetTierKey = document.getElementById('targetTier').value;
+      const targetGoal = tierGoals[targetTierKey];
+
+      // 「今日達成」トグルの判定
+      const isTodayOnly = document.getElementById('todayOnlyToggle').checked;
+      const daysLeft = isTodayOnly ? 0 : calculatedDaysLeft;
+
+      const resSkill = parseInt(document.getElementById('resSkill').value) || 0;
+      const resMelomon = parseInt(document.getElementById('resMelomon').value) || 0;
+      const resRunes = parseInt(document.getElementById('resRunes').value) || 0;
+      const resArtifact = parseInt(document.getElementById('resArtifact').value) || 0;
+      const resRecharge = parseInt(document.getElementById('resRecharge').value) || 0;
+      const resMount = parseInt(document.getElementById('resMount').value) || 0;
+
+      const dailyQuestPts = 100 * daysLeft;
+      const totalDailyPoints = dailyQuestPts;
+
+      const ptSkill = resSkill * 10;
+      const ptMelomon = resMelomon * 15;
+      const ptRunes = resRunes * 1;
+      const ptArtifact = resArtifact * 3;
+      const ptRecharge = resRecharge * 3;
+      const ptMount = resMount * 2;
+
+      const totalResourcePoints = ptSkill + ptMelomon + ptRunes + ptArtifact + ptRecharge + ptMount;
+
+      const totalPoints = currentPoints + totalDailyPoints + totalResourcePoints;
+      const missingPoints = Math.max(0, targetGoal.points - totalPoints);
+
+      // 到達予定の周数・周ptの計算
+      const predLaps = Math.min(3, Math.floor(totalPoints / 3000));
+      const predLapPts = predLaps >= 3 ? 0 : (totalPoints % 3000);
+      const progressString = `${predLaps} 周完了 (周pt: ${predLapPts.toLocaleString()} pt)`;
+
+      // パック集計
+      let boughtPackTokens = 0;
+      let planPackTokens = 0;
+      let planStellarite = 0;
+      let planJpy = 0;
+
+      PACK_LIST.forEach(pack => {
+        const isBought = document.getElementById(`${pack.id}_bought`).checked;
+        const isPlan = document.getElementById(`${pack.id}_plan`).checked;
+
+        if (isBought) {
+          boughtPackTokens += pack.tokens;
+        } else if (isPlan) {
+          planPackTokens += pack.tokens;
+          planStellarite += pack.stellarite;
+          planJpy += pack.jpy;
+        }
+      });
+
+      // 獲得個数計算
+      const ownedFromLap = calculateTokensFromPoints(currentPoints);
+      const ownedTokensTotal = ownedFromLap + boughtPackTokens;
+
+      const totalTokensFromPoints = calculateTokensFromPoints(totalPoints);
+      const upcomingFromPoints = Math.max(0, totalTokensFromPoints - ownedFromLap);
+
+      const upcomingTokensTotal = upcomingFromPoints + planPackTokens;
+      const totalTokens = ownedTokensTotal + upcomingTokensTotal;
+      const missingTokens = Math.max(0, targetGoal.tokens - totalTokens);
+
+      // --- UIの更新 ---
+      const statusCard = document.getElementById('statusCard');
+      const statusHeader = document.getElementById('statusHeader');
+      const statusValue = document.getElementById('statusValue');
+      const statusSubtext = document.getElementById('statusSubtext');
+
+      if (missingTokens === 0) {
+        statusCard.className = "rounded-xl p-4 bg-gradient-to-br from-emerald-950/80 to-slate-900 border border-emerald-500/40 text-center transition-all space-y-2 shadow-lg shadow-emerald-950/20";
+        statusHeader.innerHTML = `<span class="text-emerald-300 font-bold">🎉 目標達成可能！</span>`;
+        statusValue.className = "text-2xl sm:text-3xl font-extrabold text-emerald-400 tracking-tight";
+        statusValue.textContent = "条件をクリアしています";
+        
+        statusSubtext.style.display = "block";
+        document.getElementById('ptsNeededText').innerHTML = `<span class="text-emerald-300 font-semibold">到達可能！</span>`;
+        document.getElementById('predictedProgressText').textContent = `到達予想: ${progressString}`;
+      } else {
+        statusCard.className = "rounded-xl p-4 bg-gradient-to-br from-rose-950/80 to-slate-900 border border-rose-500/40 text-center transition-all space-y-2 shadow-lg shadow-rose-950/20";
+        statusHeader.innerHTML = `<span class="text-rose-300 font-semibold">✈️ 目標達成まであと</span>`;
+        statusValue.className = "text-3xl sm:text-4xl font-extrabold text-rose-400 tracking-tight";
+        statusValue.innerHTML = `${missingTokens.toLocaleString()} <span class="text-base font-normal text-slate-300">個</span>`;
+        
+        statusSubtext.style.display = "block";
+        document.getElementById('ptsNeededText').textContent = missingPoints > 0 ? `あと ${missingPoints.toLocaleString()} pt` : "パック等で補う必要があります";
+        document.getElementById('predictedProgressText').textContent = `到達予想: ${progressString}`;
+      }
+
+      // プログレスバー更新
+      const targetTokens = targetGoal.tokens;
+      const ownedPct = Math.min(100, (ownedTokensTotal / targetTokens) * 100);
+      const upcomingPct = Math.min(100 - ownedPct, (upcomingTokensTotal / targetTokens) * 100);
+      const currentPct = Math.min(100, Math.round(((ownedTokensTotal + upcomingTokensTotal) / targetTokens) * 100));
+
+      document.getElementById('barOwned').style.width = `${ownedPct}%`;
+      document.getElementById('barUpcoming').style.width = `${upcomingPct}%`;
+      document.getElementById('progressBarText').textContent = `${totalTokens.toLocaleString()} / ${targetTokens.toLocaleString()} 個 (${currentPct}%)`;
+
+      document.getElementById('barOwnedText').textContent = `${ownedTokensTotal}個`;
+      document.getElementById('barUpcomingText').textContent = `${upcomingTokensTotal}個`;
+      document.getElementById('barMissingText').textContent = `${missingTokens}個`;
+
+      // 詳細内訳反映
+      document.getElementById('tokensOwnedResult').textContent = ownedTokensTotal.toLocaleString() + ' 個';
+      document.getElementById('bdOwnedFromLap').textContent = ownedFromLap.toLocaleString() + ' 個';
+      document.getElementById('bdOwnedFromPacks').textContent = boughtPackTokens.toLocaleString() + ' 個';
+
+      document.getElementById('tokensUpcomingResult').textContent = upcomingTokensTotal.toLocaleString() + ' 個';
+      document.getElementById('bdUpcomingFromPoints').textContent = upcomingFromPoints.toLocaleString() + ' 個';
+      document.getElementById('bdUpcomingFromPacks').textContent = planPackTokens.toLocaleString() + ' 個';
+
+      document.getElementById('stellariteCostResult').textContent = planStellarite.toLocaleString();
+      document.getElementById('jpyCostResult').textContent = planJpy.toLocaleString() + ' 円';
+
+      // デイリーポイント表示のテキスト調整
+      const dailyLabelText = document.getElementById('dailyLabelText');
+      if (isTodayOnly) {
+        dailyLabelText.textContent = "デイリー獲得予測 (除外中):";
+        document.getElementById('dailyPointsResult').textContent = '0 pt';
+      } else {
+        dailyLabelText.textContent = "デイリー獲得予測:";
+        document.getElementById('dailyPointsResult').textContent = totalDailyPoints.toLocaleString() + ' pt';
+      }
+
+      document.getElementById('resourcePointsResult').textContent = totalResourcePoints.toLocaleString() + ' pt';
+      document.getElementById('totalPointsResult').textContent = totalPoints.toLocaleString() + ' pt';
+      
+      // ポイント詳細内の到達進捗テキスト更新
+      document.getElementById('finalLapProgressResult').textContent = progressString;
+    }
+
+    window.onload = function() {
+      renderPackUI();
+      const hasSavedData = loadFormData();
+
+      if (!hasSavedData) {
+        const todayJST = getJSTDateString();
+        document.getElementById('eventDate').value = todayJST;
+        toggleFreeToPlayMode();
+      }
+
+      onDateChange();
+    };
+  </script>
+</body>
+</html>
